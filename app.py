@@ -1,6 +1,4 @@
-# completetly working code for a flask with the dynamic url for azure deployment
-
-from flask import Flask, request, render_template, send_file, jsonify, url_for # <-- MODIFIED: Added url_for
+from flask import Flask, request, render_template, send_file, jsonify, url_for
 import os
 import fitz  # PyMuPDF
 import pandas as pd
@@ -11,9 +9,11 @@ import tempfile
 import shutil
 import zipfile
 import logging
+import time
+import traceback
 from werkzeug.utils import secure_filename
 
-# Configure logging for Azure
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -32,50 +32,74 @@ for folder in [UPLOAD_FOLDER, TEMPLATES_FOLDER]:
 
 # ---------------- File Processing Functions ----------------
 
+def int_to_rgb(color_val):
+    """Converts an integer color value to a normalized RGB tuple (floats 0-1)."""
+    if isinstance(color_val, int):
+        b = (color_val & 0xff) / 255.0
+        g = ((color_val >> 8) & 0xff) / 255.0
+        r = ((color_val >> 16) & 0xff) / 255.0
+        return (r, g, b)
+    elif isinstance(color_val, (tuple, list)) and len(color_val) == 3:
+        return tuple(c / 255.0 if c > 1 else c for c in color_val)
+    return (0.0, 0.0, 0.0)
+
 def replace_text_in_pdf(input_pdf_path, old_text, new_text):
-    """Replace text in PDF file"""
+    """
+    Replaces text using the precise insert_text method and a standard font name.
+    """
     try:
-        pdf_document = fitz.open(input_pdf_path)
-        font_name = "Times-Roman"
-        
-        for page in pdf_document:
-            text_instances = page.search_for(old_text)
-            if text_instances:
-                original_text_info = page.get_text("dict")['blocks']
-                
+        with fitz.open(input_pdf_path) as doc:
+            for page in doc:
+                text_instances = page.search_for(old_text)
+                if not text_instances:
+                    continue
+
+                all_text_info = page.get_text("dict", flags=fitz.TEXTFLAGS_SEARCH)["blocks"]
+                instance_properties = {}
+
                 for rect in text_instances:
-                    page.add_redact_annot(rect)
-                page.apply_redactions()
-                
-                for rect in text_instances:
-                    original_fontsize = 12
-                    for block in original_text_info:
+                    found_properties = False
+                    for block in all_text_info:
                         for line in block.get("lines", []):
                             for span in line.get("spans", []):
-                                if old_text in span["text"]:
-                                    original_fontsize = span["size"]
+                                span_rect = fitz.Rect(span["bbox"])
+                                if rect.intersects(span_rect) and old_text in span["text"]:
+                                    instance_properties[rect.irect] = {
+                                        "origin": span["origin"],
+                                        "size": span["size"],
+                                        "color": span["color"]
+                                    }
+                                    found_properties = True
                                     break
-                            else:
-                                continue
-                            break
-                        else:
-                            continue
-                        break
+                            if found_properties: break
+                        if found_properties: break
                     
-                    font_params = {
-                        'fontsize': original_fontsize,
-                        'fontname': font_name
-                    }
-                    insert_point = fitz.Point(rect.x0, rect.y1 - 2.5)
-                    page.insert_text(insert_point, new_text, **font_params)
+                    if not found_properties:
+                        instance_properties[rect.irect] = {"origin": rect.bl, "size": 11, "color": 0}
+
+                    page.add_redact_annot(rect, fill=(1.0, 1.0, 1.0))
+                
+                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+
+                for rect in text_instances:
+                    properties = instance_properties.get(rect.irect)
+                    if properties:
+                        page.insert_text(
+                            properties["origin"],
+                            new_text,
+                            fontsize=properties["size"],
+                            fontname="times-roman",
+                            color=int_to_rgb(properties["color"])
+                        )
+
+            output_path = input_pdf_path.replace('.pdf', '_modified.pdf')
+            doc.save(output_path, garbage=4, deflate=True, clean=True)
         
-        output_path = input_pdf_path.replace('.pdf', '_modified.pdf')
-        pdf_document.save(output_path)
-        pdf_document.close()
         logger.info(f"PDF processed successfully: {output_path}")
         return output_path
     except Exception as e:
-        logger.error(f"Error processing PDF {input_pdf_path}: {str(e)}")
+        tb_str = traceback.format_exc()
+        logger.error(f"Error in replace_text_in_pdf: {str(e)}\n{tb_str}")
         raise
 
 def replace_text_in_csv(input_csv_path, old_text, new_text):
@@ -164,7 +188,6 @@ def extract_zip_and_process(zip_path, old_text, new_text):
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(extract_folder)
         
-        # Process all files in the extracted folder
         for root, dirs, files in os.walk(extract_folder):
             for file in files:
                 file_path = os.path.join(root, file)
@@ -179,7 +202,6 @@ def extract_zip_and_process(zip_path, old_text, new_text):
                         logger.error(f"Error processing {file}: {str(e)}")
                         continue
         
-        # Create a new ZIP with processed files
         if processed_files:
             output_zip = zip_path.replace('.zip', '_modified.zip')
             with zipfile.ZipFile(output_zip, 'w') as zip_ref:
@@ -192,7 +214,6 @@ def extract_zip_and_process(zip_path, old_text, new_text):
             return None
             
     finally:
-        # Clean up extracted folder
         shutil.rmtree(extract_folder, ignore_errors=True)
 
 # ---------------- Routes ----------------
@@ -200,7 +221,6 @@ def extract_zip_and_process(zip_path, old_text, new_text):
 @app.route('/')
 def index():
     """Main page route"""
-    # <-- MODIFIED: This section is updated to pass the dynamic URL to the frontend.
     return render_template('index.html', UPLOAD_URL=url_for('upload_file'))
 
 @app.route('/health')
@@ -218,14 +238,12 @@ def upload_file():
         if not old_text:
             return jsonify({'error': 'Text to find is required'}), 400
         
-        # Handle multiple files
         uploaded_files = request.files.getlist('pdf_file')
         if not uploaded_files or all(file.filename == '' for file in uploaded_files):
             return jsonify({'error': 'No files selected'}), 400
         
-        processed_files = []
+        processed_files_info = []
         temp_files = []
-        supported_extensions = ['.pdf', '.csv', '.xml', '.xpt', '.zip']
         
         for file in uploaded_files:
             if file.filename == '':
@@ -234,16 +252,14 @@ def upload_file():
             filename = secure_filename(file.filename)
             ext = os.path.splitext(filename)[1].lower()
             
-            if ext not in supported_extensions:
-                return jsonify({'error': f'Unsupported file type: {ext}. Supported types: PDF, CSV, XML, XPT, ZIP'}), 400
+            if ext not in ['.pdf', '.csv', '.xml', '.xpt', '.zip']:
+                return jsonify({'error': f'Unsupported file type: {ext}'}), 400
             
-            # Save uploaded file
             unique_filename = f"{uuid.uuid4()}_{filename}"
             file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
             file.save(file_path)
             temp_files.append(file_path)
             
-            # Process file
             try:
                 if ext == '.zip':
                     output_path = extract_zip_and_process(file_path, old_text, new_text)
@@ -251,7 +267,7 @@ def upload_file():
                     output_path = process_single_file(file_path, old_text, new_text)
                 
                 if output_path:
-                    processed_files.append({
+                    processed_files_info.append({
                         'path': output_path,
                         'name': f"modified_{filename}"
                     })
@@ -259,65 +275,50 @@ def upload_file():
                     return jsonify({'error': f'Failed to process {filename}'}), 400
                     
             except Exception as e:
-                # Clean up on error
-                for temp_file in temp_files:
-                    try:
-                        os.remove(temp_file)
-                    except:
-                        pass
-                logger.error(f"Error processing {filename}: {str(e)}")
+                tb_str = traceback.format_exc()
+                logger.error(f"Error processing {filename}: {str(e)}\n{tb_str}")
                 return jsonify({'error': f'Error processing {filename}: {str(e)}'}), 500
         
-        if not processed_files:
+        if not processed_files_info:
             return jsonify({'error': 'No files were processed successfully'}), 400
         
-        # If only one file processed, send it directly
-        if len(processed_files) == 1:
+        if len(processed_files_info) == 1:
             response = send_file(
-                processed_files[0]['path'],
+                processed_files_info[0]['path'],
                 as_attachment=True,
-                download_name=processed_files[0]['name'],
-                mimetype='application/octet-stream'
+                download_name=processed_files_info[0]['name']
             )
         else:
-            # Create a ZIP file with all processed files
             zip_filename = f"modified_files_{uuid.uuid4()}.zip"
             zip_path = os.path.join(UPLOAD_FOLDER, zip_filename)
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for info in processed_files_info:
+                    zipf.write(info['path'], info['name'])
             
-            with zipfile.ZipFile(zip_path, 'w') as zip_ref:
-                for processed_file in processed_files:
-                    zip_ref.write(processed_file['path'], processed_file['name'])
-            
-            processed_files.append({'path': zip_path, 'name': zip_filename})  # Add zip to cleanup list
-            
+            processed_files_info.append({'path': zip_path, 'name': zip_filename})
             response = send_file(
                 zip_path,
                 as_attachment=True,
-                download_name=zip_filename,
-                mimetype='application/zip'
+                download_name=zip_filename
             )
         
-        # Clean up files after sending
-        def remove_files():
+        @response.call_after_request
+        def cleanup(response):
             try:
-                for temp_file in temp_files:
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
-                for processed_file in processed_files:
-                    if os.path.exists(processed_file['path']):
-                        os.remove(processed_file['path'])
+                all_files_to_delete = temp_files + [info['path'] for info in processed_files_info]
+                for f_path in all_files_to_delete:
+                    if os.path.exists(f_path):
+                        os.remove(f_path)
+                logger.info("Cleaned up temporary and processed files.")
             except Exception as e:
-                logger.error(f"Error cleaning up files: {e}")
-        
-        # Schedule cleanup (in production, use a proper background task)
-        import threading
-        threading.Timer(15.0, remove_files).start()
-        
-        logger.info(f"Successfully processed {len(processed_files)} file(s)")
+                logger.error(f"Error during file cleanup: {e}")
+            return response
+            
         return response
         
     except Exception as e:
-        logger.error(f"Unexpected error in upload_file: {str(e)}")
+        tb_str = traceback.format_exc()
+        logger.error(f"Unexpected error in upload_file: {str(e)}\n{tb_str}")
         return jsonify({'error': str(e)}), 500
 
 @app.errorhandler(413)
@@ -332,7 +333,6 @@ def internal_error(e):
     return jsonify({'error': 'An internal server error occurred. Please try again.'}), 500
 
 if __name__ == '__main__':
-    # Production settings for Azure
     port = int(os.environ.get('PORT', 8000))
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
