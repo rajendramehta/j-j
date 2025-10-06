@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Text Replacer - Azure</title>
+    <meta name="description" content="Professional document text replacement tool for PDF, CSV, XML, XPT, and ZIP files">
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px 30px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 1200px;
+            margin: 0 auto 20px auto;
+        }
+        
+        .navbar-brand {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        
+        .status-badge {
+            background: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            position: relative;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .header-section {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .logo-text {
+            color: #dc3545;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+        
+        .features {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .feature-badge {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+        
+        .left-panel, .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        
+        .form-group {
+            position: relative;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .file-upload-area {
+            position: relative;
+            border: 2px dashed #e1e5e9;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        .file-upload-area:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+            transform: translateY(-2px);
+        }
+        
+        .file-upload-area.dragover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+        
+        .file-upload-area:hover .upload-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+        
+        .upload-text {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .upload-subtext {
+            color: #999;
+            font-size: 0.9rem;
+        }
+        
+        input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 12px;
+            color: #667eea;
+            font-weight: 500;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .file-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .file-name {
+            font-weight: 600;
+        }
+        
+        .file-size {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        
+        .btn {
+            padding: 18px 35px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            min-width: 220px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(40, 167, 69, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .spinner {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .spinner.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            color: #667eea;
+            font-weight: 500;
+            font-size: 1.1rem;
+        }
+        
+        .spinner::after {
+            content: '';
+            width: 24px;
+            height: 24px;
+            border: 3px solid #e1e5e9;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status-message {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            font-weight: 500;
+            text-align: center;
+            display: none;
+            animation: slideIn 0.5s ease;
+        }
+        
+        .status-success {
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+            border: 1px solid rgba(40, 167, 69, 0.2);
+        }
+        
+        .status-error {
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+            border: 1px solid rgba(220, 53, 69, 0.2);
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .process-steps {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .step:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .step-number {
+            width: 35px;
+            height: 35px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .step-text {
+            color: #555;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+        
+        .file-types {
+            color: #999;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .multiple-files-info {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: #667eea;
+            text-align: center;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+        
+        .footer a {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 25px;
+                padding: 25px 20px;
+            }
+            
+            .navbar {
+                padding: 12px 20px;
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .btn {
+                min-width: 100%;
+            }
+            
+            .features {
+                justify-content: center;
+            }
+            
+            .process-steps {
+                padding: 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 20px 15px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .upload-icon {
+                font-size: 2.5rem;
+            }
+        }
+        
+        /* Loading animation enhancements */
+        .btn.loading {
+            pointer-events: none;
+        }
+        
+        .btn.loading::after {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+        }
+        
+        /* Success animation */
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .success-animation {
+            animation: bounceIn 0.6s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/" class="navbar-brand">📄 Document Text Replacer</a>
+    </div>
+
+    <div class="container">
+        <div class="header-section">
+            <h1>Document Text Replacer</h1>
+            <p class="subtitle">Advanced text replacement for professional documents</p>
+            <div class="features">
+                <span class="feature-badge">PDF Support</span>
+                <span class="feature-badge">CSV Processing</span>
+                <span class="feature-badge">XML Handling</span>
+                <span class="feature-badge">XPT Files</span>
+                <span class="feature-badge">ZIP Batch</span>
+                <span class="feature-badge">Multi-Upload</span>
+            </div>
+        </div>
+        
+        <div class="left-panel">
+            <div class="form-group">
+                <label for="old_text">🔍 Text to Find</label>
+                <input type="text" id="old_text" placeholder="Enter the text you want to replace..." required>
+            </div>
+            
+            <div class="form-group">
+                <label for="new_text">✏️ Replace With</label>
+                <input type="text" id="new_text" placeholder="Enter the replacement text...">
+            </div>
+            
+            <div class="form-group">
+                <label>📁 Upload Documents</label>
+                <div class="file-upload-area" id="fileUploadArea">
+                    <span class="upload-icon">📎</span>
+                    <div class="upload-text">Drop your files here or click to browse</div>
+                    <div class="upload-subtext">Supports multiple file selection and drag & drop</div>
+                    <input type="file" id="pdf-file-input" accept=".pdf,.csv,.xml,.xpt,.zip" multiple>
+                    <div class="file-info" id="fileInfo"></div>
+                </div>
+                <div class="file-types">
+                    <strong>Supported formats:</strong> PDF, CSV, XML, XPT, ZIP<br>
+                    <strong>Maximum size:</strong> 50MB total
+                </div>
+                <div class="multiple-files-info">
+                    💡 Upload multiple files at once or use ZIP folders for batch processing
+                </div>
+                <div class="security-info">
+                    🔒 Files are processed securely and automatically deleted after download
+                </div>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="process-steps">
+                <div class="steps-title">📋 How It Works</div>
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">Enter the text you want to find and replace in your documents</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">Upload single/multiple files or ZIP folders containing supported formats</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">Click process to generate modified files with replacements made</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">Download your processed files instantly and securely</div>
+                </div>
+            </div>
+            
+            <button type="button" class="btn btn-primary" id="processBtn" disabled>
+                <span>🚀 Process Documents</span>
+            </button>
+            
+            <div class="spinner" id="loadingSpinner">
+                <span>⚡ Processing your documents...</span>
+            </div>
+            
+            <div class="status-message" id="statusMessage"></div>
+            
+            <button type="button" class="btn btn-success" id="downloadBtn" style="display: none;">
+                <span>📥 Download Modified Files</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Powered by Flask | <a href="/health" target="_blank">Health Check</a></p>
+    </div>
+    
+    <script>
+        const UPLOAD_URL = {{ UPLOAD_URL|tojson }};
+    </script>
+    
+    <script>
+        const fileInput = document.getElementById('pdf-file-input');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInfo = document.getElementById('fileInfo');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const spinner = document.getElementById('loadingSpinner');
+        const statusMessage = document.getElementById('statusMessage');
+        const oldTextInput = document.getElementById('old_text');
+        const newTextInput = document.getElementById('new_text');
+        
+        let currentFiles = [];
+        
+        // Enhanced file upload handling
+        fileUploadArea.addEventListener('click', function() { 
+            fileInput.click(); 
+        });
+        
+        fileUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+        
+        fileUploadArea.addEventListener('dragleave', function(e) {
+            if (!fileUploadArea.contains(e.relatedTarget)) {
+                fileUploadArea.classList.remove('dragover');
+            }
+        });
+        
+        fileUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) {
+                handleFileSelect(files);
+            }
+        });
+        
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleFileSelect(Array.from(e.target.files));
+            }
+        });
+        
+        function handleFileSelect(files) {
+            const allowedTypes = ['.pdf', '.csv', '.xml', '.xpt', '.zip'];
+            const validFiles = [];
+            let totalSize = 0;
+            
+            for (const file of files) {
+                const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (!allowedTypes.includes(fileExt)) {
+                    showStatus(`❌ Invalid file type: ${file.name}. Please select PDF, CSV, XML, XPT, or ZIP files.`, 'error');
+                    return;
+                }
+                
+                totalSize += file.size;
+                if (totalSize > 50 * 1024 * 1024) {
+                    showStatus('❌ Total file size must be less than 50MB', 'error');
+                    return;
+                }
+                
+                validFiles.push(file);
+            }
+            
+            currentFiles = validFiles;
+            displayFileInfo(validFiles);
+            checkFormValidity();
+        }
+        
+        function displayFileInfo(files) {
+            if (files.length === 0) {
+                fileInfo.style.display = 'none';
+                return;
+            }
+            
+            if (files.length === 1) {
+                const file = files[0];
+                fileInfo.innerHTML = `
+                    <div class="file-item">
+                        <span class="file-name">📄 ${file.name}</span>
+                        <span class="file-size">${formatFileSize(file.size)}</span>
+                    </div>
+                `;
+            } else {
+                const fileList = files.map(file => `
+                    <div class="file-item">
+                        <span class="file-name">📄 ${file.name}</span>
+                        <span class="file-size">${formatFileSize(file.size)}</span>
+                    </div>
+                `).join('');
+                
+                const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+                fileInfo.innerHTML = `
+                    <div style="font-weight: 700; margin-bottom: 10px; text-align: center;">
+                        📁 ${files.length} files selected (${formatFileSize(totalSize)} total)
+                    </div>
+                    ${fileList}
+                `;
+            }
+            
+            fileInfo.style.display = 'block';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function checkFormValidity() {
+            const hasFiles = currentFiles.length > 0;
+            const hasOldText = oldTextInput.value.trim() !== '';
+            
+            processBtn.disabled = !(hasFiles && hasOldText);
+            
+            if (hasFiles && hasOldText) {
+                processBtn.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+            }
+        }
+        
+        oldTextInput.addEventListener('input', checkFormValidity);
+        newTextInput.addEventListener('input', checkFormValidity);
+        
+        // Enhanced process button click with better error handling
+        processBtn.addEventListener('click', async function() {
+            if (currentFiles.length === 0 || !oldTextInput.value.trim()) {
+                showStatus('❌ Please select files and enter text to find', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            
+            currentFiles.forEach(file => {
+                formData.append('pdf_file', file);
+            });
+            
+            formData.append('old_text', oldTextInput.value.trim());
+            formData.append('new_text', newTextInput.value.trim());
+            
+            setProcessingState(true);
+            
+            try {
+                // <-- MODIFIED: Using the dynamic UPLOAD_URL variable instead of a hardcoded string.
+                const response = await fetch(UPLOAD_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    let errorMessage = `HTTP ${response.status}`;
+                    try {
+                        const error = await response.json();
+                        errorMessage = error.error || errorMessage;
+                    } catch (e) {
+                        // If response is not JSON, use status text
+                        errorMessage = response.statusText || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                
+                // Determine download filename
+                let filename;
+                if (currentFiles.length === 1) {
+                    filename = 'modified_' + currentFiles[0].name;
+                } else {
+                    filename = 'modified_files.zip';
+                }
+                
+                downloadBtn.setAttribute('data-url', url);
+                downloadBtn.setAttribute('data-filename', filename);
+                
+                showStatus('✅ Documents processed successfully!', 'success');
+                downloadBtn.style.display = 'flex';
+                downloadBtn.classList.add('success-animation');
+                
+            } catch (error) {
+                console.error('Processing error:', error);
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                setProcessingState(false);
+            }
+        });
+        
+        // Enhanced download functionality
+        downloadBtn.addEventListener('click', function() {
+            const url = downloadBtn.getAttribute('data-url');
+            const filename = downloadBtn.getAttribute('data-filename');
+            
+            if (url && filename) {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                
+                showStatus('📥 Download started successfully!', 'success');
+                
+                // Reset form after successful download
+                setTimeout(() => {
+                    resetForm();
+                }, 2000);
+            }
+        });
+        
+        function resetForm() {
+            currentFiles = [];
+            fileInput.value = '';
+            fileInfo.style.display = 'none';
+            downloadBtn.style.display = 'none';
+            downloadBtn.classList.remove('success-animation');
+            hideStatus();
+            checkFormValidity();
+        }
+        
+        function setProcessingState(processing) {
+            processBtn.disabled = processing;
+            if (processing) {
+                processBtn.classList.add('loading');
+                processBtn.innerHTML = '<span>⚡ Processing...</span>';
+                spinner.classList.add('show');
+                downloadBtn.style.display = 'none';
+                hideStatus();
+            } else {
+                processBtn.classList.remove('loading');
+                processBtn.innerHTML = '<span>🚀 Process Documents</span>';
+                spinner.classList.remove('show');
+            }
+        }
+        
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message status-${type}`;
+            statusMessage.style.display = 'block';
+            
+            if (type === 'error') {
+                setTimeout(() => {
+                    hideStatus();
+                }, 8000);
+            }
+        }
+        
+        function hideStatus() {
+            statusMessage.style.display = 'none';
+        }
+        
+        // Enhanced interactions
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('mouseenter', function() {
+                if (!this.disabled && !this.classList.contains('loading')) {
+                    this.style.transform = 'translateY(-3px) scale(1.02)';
+                }
+            });
+            
+            btn.addEventListener('mouseleave', function() {
+                if (!this.disabled) {
+                    this.style.transform = 'translateY(0) scale(1)';
+                }
+            });
+        });
+        
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.querySelector('label').style.color = '#667eea';
+                this.style.borderColor = '#667eea';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.querySelector('label').style.color = '#555';
+                if (this.value.trim() === '') {
+                    this.style.borderColor = '#e1e5e9';
+                }
+            });
+        });
+        
+        // Health check on page load
+        fetch('/health')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Health check:', data);
+            })
+            .catch(error => {
+                console.warn('Health check failed:', error);
+            });
+        
+        // Add some visual feedback for the steps
+        document.querySelectorAll('.step').forEach((step, index) => {
+            step.addEventListener('mouseenter', function() {
+                this.style.background = 'rgba(102, 126, 234, 0.1)';
+            });
+            
+            step.addEventListener('mouseleave', function() {
+                this.style.background = 'rgba(255, 255, 255, 0.8)';
+            });
+        });
+    </script>
+</body>
+</html>
