@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, send_file, jsonify, url_for
-from werkzeug.middleware.proxy_fix import ProxyFix  # <-- NEW: Import the middleware
+from werkzeug.middleware.proxy_fix import ProxyFix  # Import the middleware
 import os
 import fitz  # PyMuPDF
 import pandas as pd
@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# --- START: New Proxy Fix ---
-# This line makes the app aware of the proxy server, allowing url_for to work correctly.
+# --- START: Proxy Fix for Posit ---
+# This line makes the app aware of the Posit server, allowing url_for to work correctly.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-# --- END: New Proxy Fix ---
+# --- END: Proxy Fix ---
 
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 
@@ -105,17 +105,20 @@ def replace_text_in_pdf(input_pdf_path, old_text, new_text):
         raise
 
 def replace_text_in_csv(input_csv_path, old_text, new_text):
+    """Replace text in CSV file"""
     try:
         df = pd.read_csv(input_csv_path, dtype=str)
         df = df.applymap(lambda x: x.replace(old_text, new_text) if isinstance(x, str) else x)
         output_path = input_csv_path.replace('.csv', '_modified.csv')
         df.to_csv(output_path, index=False)
+        logger.info(f"CSV processed successfully: {output_path}")
         return output_path
     except Exception as e:
         logger.error(f"Error processing CSV {input_csv_path}: {str(e)}")
         raise
 
 def replace_text_in_xml(input_xml_path, old_text, new_text):
+    """Replace text in XML file"""
     try:
         tree = ET.parse(input_xml_path)
         root = tree.getroot()
@@ -128,23 +131,27 @@ def replace_text_in_xml(input_xml_path, old_text, new_text):
         replace_in_element(root)
         output_path = input_xml_path.replace('.xml', '_modified.xml')
         tree.write(output_path, encoding="utf-8", xml_declaration=True)
+        logger.info(f"XML processed successfully: {output_path}")
         return output_path
     except Exception as e:
         logger.error(f"Error processing XML {input_xml_path}: {str(e)}")
         raise
 
 def replace_text_in_xpt(input_xpt_path, old_text, new_text):
+    """Replace text in XPT file"""
     try:
         df, meta = pyreadstat.read_xport(input_xpt_path)
         df = df.applymap(lambda x: x.replace(old_text, new_text) if isinstance(x, str) else x)
         output_path = input_xpt_path.replace('.xpt', '_modified.xpt')
         pyreadstat.write_xport(df, output_path, file_format_version=8, table_name=meta.table_name)
+        logger.info(f"XPT processed successfully: {output_path}")
         return output_path
     except Exception as e:
         logger.error(f"Error processing XPT {input_xpt_path}: {str(e)}")
         raise
 
 def process_single_file(file_path, old_text, new_text):
+    """Process a single file based on its extension"""
     ext = os.path.splitext(file_path)[1].lower()
     try:
         if ext == '.pdf': return replace_text_in_pdf(file_path, old_text, new_text)
@@ -157,6 +164,7 @@ def process_single_file(file_path, old_text, new_text):
         raise
 
 def extract_zip_and_process(zip_path, old_text, new_text):
+    """Extract ZIP file and process all supported files inside"""
     extract_folder = os.path.join(UPLOAD_FOLDER, f"extracted_{uuid.uuid4()}")
     os.makedirs(extract_folder)
     processed_files = []
@@ -182,6 +190,8 @@ def extract_zip_and_process(zip_path, old_text, new_text):
         return None
     finally:
         shutil.rmtree(extract_folder, ignore_errors=True)
+
+# ---------------- Routes ----------------
 
 @app.route('/')
 def index():
